@@ -224,6 +224,7 @@ public class NewExprent extends Exprent {
           }
         }
 
+        boolean forceSameType = DecompilerContext.getOption(IFernflowerPreferences.OVERLOADING_SAFETY_CASTS);
         boolean firstParam = true;
         int start = 0, end = invSuper.getLstParameters().size();
         if (enumConst) {
@@ -244,7 +245,7 @@ public class NewExprent extends Exprent {
               }
             }
 
-            ExprProcessor.getCastedExprent(param, invSuper.getDescriptor().params[i], buf, indent, true, tracer);
+            ExprProcessor.getCastedExprent(param, invSuper.getDescriptor().params[i], buf, indent, true, forceSameType, tracer);
 
             firstParam = false;
           }
@@ -331,7 +332,10 @@ public class NewExprent extends Exprent {
         int start = enumConst ? 2 : 0;
         if (!enumConst || start < lstParameters.size()) {
           buf.append('(');
-
+          
+          boolean forceSameType = DecompilerContext.getOption(IFernflowerPreferences.OVERLOADING_SAFETY_CASTS);
+          
+          //wouldn't that code have to check AmbiguousParameters like in InvocationExprent?
           boolean firstParam = true;
           for (int i = start; i < lstParameters.size(); i++) {
             if (sigFields == null || sigFields.get(i) == null) {
@@ -349,7 +353,7 @@ public class NewExprent extends Exprent {
                 buf.append(", ");
               }
 
-              ExprProcessor.getCastedExprent(expr, leftType, buf, indent, true, tracer);
+              ExprProcessor.getCastedExprent(expr, leftType, buf, indent, true, forceSameType, tracer);
 
               firstParam = false;
             }
