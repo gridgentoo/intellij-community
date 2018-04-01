@@ -79,12 +79,11 @@ python_installations = [
     r'%s\py36_32\Scripts\python.exe' % miniconda32_envs,
     r'%s\py37_32\Scripts\python.exe' % miniconda32_envs,
 
-    r'%s\py26_64\Scripts\python.exe' % miniconda64_envs,
-    r'%s\py27_64\Scripts\python.exe' % miniconda64_envs,
-    r'%s\py34_64\Scripts\python.exe' % miniconda64_envs,
-    r'%s\py35_64\Scripts\python.exe' % miniconda64_envs,
-    r'%s\py36_64\Scripts\python.exe' % miniconda64_envs,
-    r'%s\py37_64\Scripts\python.exe' % miniconda64_envs,
+    # r'%s\py26_64\python.exe' % miniconda64_envs,
+    r'%s\py27_64\python.exe' % miniconda64_envs,
+    # r'%s\py34_64\python.exe' % miniconda64_envs,
+   # r'%s\py35_64\python.exe' % miniconda64_envs,
+     r'%s\py36_64\python.exe' % miniconda64_envs,
 ]
 
 root_dir = os.path.dirname(os.path.dirname(__file__))
@@ -121,6 +120,10 @@ def main():
         new_name = 'pydevd_cython_%s_%s' % (sys.platform, extract_version(python_install))
         args = [
             python_install, os.path.join(root_dir, 'build_tools', 'build.py'), '--no-remove-binaries', '--target-pyd-name=%s' % new_name, '--force-cython']
+
+        native_tracing_name = 'pydevd_native_tracing_%s_%s' % (sys.platform, extract_version(python_install))
+        args.append('--target-pyd-tracing-name=%s' % native_tracing_name)
+
         if i != 0:
             args.append('--no-regenerate-files')
         version_number = extract_version(python_install)
