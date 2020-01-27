@@ -327,6 +327,7 @@ public class FindPopupPanel extends JBPanel<FindPopupPanel> implements FindUI {
       w.addWindowListener(new WindowAdapter() {
         @Override
         public void windowOpened(WindowEvent e) {
+          updateScopeDetailsPanel();
           w.addWindowFocusListener(new WindowAdapter() {
             @Override
             public void windowLostFocus(WindowEvent e) {
@@ -986,7 +987,6 @@ public class FindPopupPanel extends JBPanel<FindPopupPanel> implements FindUI {
     }
     myReplaceComponent.setText(toReplace);
     updateControls();
-    updateScopeDetailsPanel();
 
     boolean isReplaceState = myHelper.isReplaceState();
     myTitleLabel.setText(myHelper.getTitle());
