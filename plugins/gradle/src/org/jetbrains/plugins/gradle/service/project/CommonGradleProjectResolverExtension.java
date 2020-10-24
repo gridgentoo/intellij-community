@@ -28,7 +28,6 @@ import com.intellij.openapi.roots.ui.configuration.SdkLookupUtil;
 import com.intellij.openapi.util.Pair;
 import com.intellij.openapi.util.io.FileUtil;
 import com.intellij.openapi.util.io.FileUtilRt;
-import com.intellij.openapi.util.registry.Registry;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.util.Consumer;
 import com.intellij.util.ReflectionUtil;
@@ -247,9 +246,7 @@ public final class CommonGradleProjectResolverExtension extends AbstractProjectR
   public void populateModuleExtraModels(@NotNull IdeaModule gradleModule, @NotNull DataNode<ModuleData> ideModule) {
     GradleExtensions gradleExtensions = resolverCtx.getExtraProject(gradleModule, GradleExtensions.class);
     if (gradleExtensions != null) {
-      boolean useCustomSerialization = Registry.is("gradle.tooling.custom.serializer", true);
-      DefaultGradleExtensions extensions = useCustomSerialization ? (DefaultGradleExtensions)gradleExtensions
-                                                                  : new DefaultGradleExtensions(gradleExtensions);
+      DefaultGradleExtensions extensions = new DefaultGradleExtensions(gradleExtensions);
       ExternalProject externalProject = getExternalProject(gradleModule, resolverCtx);
       if (externalProject != null) {
         extensions.addTasks(externalProject.getTasks().values());
