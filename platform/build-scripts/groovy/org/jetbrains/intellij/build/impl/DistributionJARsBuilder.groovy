@@ -608,8 +608,12 @@ final class DistributionJARsBuilder {
       def pluginsDirectoryName = "${buildContext.applicationInfo.productCode}-plugins"
       def nonBundledPluginsArtifacts = "$buildContext.paths.artifacts/$pluginsDirectoryName"
       def pluginsToIncludeInCustomRepository = new ArrayList<PluginRepositorySpec>()
-      def whiteList = new File("$buildContext.paths.communityHome/../build/plugins-autoupload-whitelist.txt").readLines()
-        .stream().map { it.trim() }.filter { !it.isEmpty() && !it.startsWith("//") }.collect(Collectors.toSet())
+      def whiteListFile = new File("$buildContext.paths.communityHome/../build/plugins-autoupload-whitelist.txt")
+
+      HashSet whiteList = new HashSet()
+      if (whiteListFile.exists()) {
+        whiteList = whiteListFile.readLines().stream().map { it.trim() }.filter { !it.isEmpty() && !it.startsWith("//") }.collect(Collectors.toSet())
+      }
 
       pluginsToPublish.each { plugin ->
         def directory = getActualPluginDirectoryName(plugin, buildContext)
