@@ -106,7 +106,11 @@ public class BrowseFolderRunnable<T extends JComponent> implements Runnable {
   }
 
   protected String getComponentText() {
-    return myAccessor.getText(myTextComponent).trim();
+    @NonNls String directoryName = myAccessor.getText(myTextComponent);
+    if (StringUtil.isEmptyOrSpaces(directoryName)) {
+      return "";
+    }
+    return directoryName.trim();
   }
 
   protected void onFileChosen(@NotNull VirtualFile chosenFile) {
