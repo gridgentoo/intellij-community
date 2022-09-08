@@ -51,7 +51,7 @@ public class PyExecuteSelectionAction extends DumbAwareAction {
     }
   }
 
-  private static void moveCaretDown(Editor editor) {
+  static void moveCaretDown(Editor editor) {
     VisualPosition pos = editor.getCaretModel().getVisualPosition();
     Pair<LogicalPosition, LogicalPosition> lines = EditorUtil.calcSurroundingRange(editor, pos, pos);
     int offset = editor.getCaretModel().getOffset();
@@ -94,7 +94,7 @@ public class PyExecuteSelectionAction extends DumbAwareAction {
   }
 
   @Nullable
-  private static String getSelectionText(@NotNull Editor editor) {
+  static String getSelectionText(@NotNull Editor editor) {
     if (editor.getSelectionModel().hasSelection()) {
       SelectionModel model = editor.getSelectionModel();
 
