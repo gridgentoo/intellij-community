@@ -122,6 +122,8 @@ public class IdeaGradleProjectSettingsControlBuilder implements GradleProjectSet
   private boolean dropResolveModulePerSourceSetCheckBox;
   @Nullable
   private JBCheckBox myResolveExternalAnnotationsCheckBox;
+  @Nullable
+  private JBCheckBox myEnableBuildScansCheckBox;
   private boolean dropResolveExternalAnnotationsCheckBox = false;
   @Nullable
   private JLabel myDelegateBuildLabel;
@@ -265,6 +267,22 @@ public class IdeaGradleProjectSettingsControlBuilder implements GradleProjectSet
           myResolveExternalAnnotationsCheckBox = new JBCheckBox(GradleBundle.message("gradle.settings.text.download.annotations")),
           ExternalSystemUiUtil.getFillLineConstraints(indentLevel));
       }
+
+      panel.add(
+        myEnableBuildScansCheckBox = new JBCheckBox(GradleBundle.message("gradle.settings.text.is.scans.enabled")),
+        ExternalSystemUiUtil.getFillLineConstraints(indentLevel));
+
+      JBLabel myEnableBuildScansHintLabel = new JBLabel(
+        XmlStringUtil.wrapInHtml(GradleBundle.message("gradle.settings.text.is.scans.enabled.hint")),
+        UIUtil.ComponentStyle.SMALL);
+      myEnableBuildScansHintLabel.setIcon(AllIcons.General.BalloonWarning12);
+      myEnableBuildScansHintLabel.setVerticalTextPosition(SwingConstants.TOP);
+      myEnableBuildScansHintLabel.setForeground(UIUtil.getLabelFontColor(UIUtil.FontColor.BRIGHTER));
+
+      GridBag constraints = ExternalSystemUiUtil.getFillLineConstraints(indentLevel);
+      constraints.insets.top = 0;
+      constraints.insets.left += UIUtil.getCheckBoxTextHorizontalOffset(myEnableBuildScansCheckBox);
+      panel.add(myEnableBuildScansHintLabel, constraints);
     });
   }
 
@@ -502,6 +520,10 @@ public class IdeaGradleProjectSettingsControlBuilder implements GradleProjectSet
       settings.setResolveExternalAnnotations(myResolveExternalAnnotationsCheckBox.isSelected());
     }
 
+    if (myEnableBuildScansCheckBox != null) {
+      settings.setScansEnabled(myEnableBuildScansCheckBox.isSelected());
+    }
+
     if (myGradleDistributionComboBox != null) {
       Object selected = myGradleDistributionComboBox.getSelectedItem();
       if (selected instanceof DistributionTypeItem) {
@@ -539,6 +561,11 @@ public class IdeaGradleProjectSettingsControlBuilder implements GradleProjectSet
 
     if (myResolveExternalAnnotationsCheckBox != null &&
         (myResolveExternalAnnotationsCheckBox.isSelected() != myInitialSettings.isResolveExternalAnnotations())) {
+      return true;
+    }
+
+    if (myEnableBuildScansCheckBox != null &&
+        (myEnableBuildScansCheckBox.isSelected() != myInitialSettings.isScansEnabled())) {
       return true;
     }
 
@@ -636,6 +663,9 @@ public class IdeaGradleProjectSettingsControlBuilder implements GradleProjectSet
     }
     if (myResolveExternalAnnotationsCheckBox != null) {
       myResolveExternalAnnotationsCheckBox.setSelected(settings.isResolveExternalAnnotations());
+    }
+    if (myEnableBuildScansCheckBox != null) {
+      myEnableBuildScansCheckBox.setSelected(settings.isScansEnabled());
     }
   }
 
