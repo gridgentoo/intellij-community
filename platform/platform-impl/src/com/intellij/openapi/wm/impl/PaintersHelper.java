@@ -481,7 +481,7 @@ final class PaintersHelper implements Painter.Listener {
         try {
           InputStream stream;
           boolean isSvg = filePath.endsWith(".svg");
-          if (filePath.contains("://") && !filePath.startsWith("http")) {
+          if (filePath.contains("://") && filePath.startsWith("http")) {
             stream = new URL(filePath).openStream();
           }
           else {
