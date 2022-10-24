@@ -139,7 +139,8 @@ public abstract class FileEditorManagerImpl extends FileEditorManagerEx implemen
   public enum OpenMode {
     NEW_WINDOW,
     RIGHT_SPLIT,
-    DEFAULT
+    DEFAULT,
+    CURRENT_EDITOR
   }
 
   private final EditorsSplitters splitters;
@@ -815,6 +816,12 @@ public abstract class FileEditorManagerImpl extends FileEditorManagerEx implemen
         Pair<FileEditor[], FileEditorProvider[]> pair = openInRightSplit(file);
         if (pair != null) return pair;
       }
+      if(mode == OpenMode.CURRENT_EDITOR) {
+        EditorWindow activeCurrentWindow = getActiveSplittersSync().getCurrentWindow();
+        if(activeCurrentWindow != null) {
+          return openFileImpl2(activeCurrentWindow, file, options);
+        }
+      }
     }
 
     EditorWindow windowToOpenIn = window;
@@ -921,6 +928,7 @@ public abstract class FileEditorManagerImpl extends FileEditorManagerEx implemen
         if (strings.contains(ACTION_OPEN_IN_NEW_WINDOW)) return OpenMode.NEW_WINDOW;
         if (strings.contains(ACTION_OPEN_IN_RIGHT_SPLIT)) return OpenMode.RIGHT_SPLIT;
       }
+      if (ke.isAltDown()) return OpenMode.CURRENT_EDITOR;
     }
 
     return OpenMode.DEFAULT;
