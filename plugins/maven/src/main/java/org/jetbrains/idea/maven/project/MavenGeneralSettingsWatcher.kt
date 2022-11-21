@@ -7,6 +7,7 @@ import com.intellij.openapi.externalSystem.autoimport.changes.FilesChangesListen
 import com.intellij.openapi.externalSystem.autoimport.settings.ReadAsyncSupplier
 import com.intellij.openapi.util.io.FileUtil
 import org.jetbrains.idea.maven.buildtool.MavenImportSpec
+import org.jetbrains.idea.maven.model.MavenTychoConstants
 import org.jetbrains.idea.maven.server.MavenDistributionsCache
 import java.util.concurrent.ExecutorService
 
@@ -40,13 +41,27 @@ class MavenGeneralSettingsWatcher private constructor(
   }
 
   init {
-    generalSettings.addListener(::fireSettingsChange, parentDisposable)
+    generalSettings.addListener(
+      {
+        updateImportingSettings()
+        fireSettingsChange()
+      }, parentDisposable)
     val filesProvider = ReadAsyncSupplier.Builder(::settingsFiles)
       .coalesceBy(this)
       .build(backgroundExecutor)
     subscribeOnVirtualFilesChanges(false, filesProvider, object : FilesChangesListener {
       override fun apply() = fireSettingsXmlChange()
     }, parentDisposable)
+  }
+
+  private fun updateImportingSettings() {
+    if (generalSettings.isTychoProject) {
+      val importingSettings = manager.importingSettings
+      val dependencyTypes = importingSettings.dependencyTypesAsSet
+      dependencyTypes.add(MavenTychoConstants.PACKAGING_ECLIPSE_PLUGIN)
+      dependencyTypes.add(MavenTychoConstants.PACKAGING_ECLIPSE_TEST_PLUGIN)
+      importingSettings.dependencyTypes = dependencyTypes.joinToString(", ")
+    }
   }
 
   companion object {

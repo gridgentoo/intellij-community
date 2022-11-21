@@ -14,6 +14,7 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.util.ExceptionUtil;
 import com.intellij.util.containers.ContainerUtil;
 import com.intellij.util.containers.MultiMap;
+import one.util.streamex.StreamEx;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -30,9 +31,15 @@ import org.jetbrains.idea.maven.utils.MavenProgressIndicator;
 import org.jetbrains.idea.maven.utils.MavenUtil;
 import org.jetbrains.idea.maven.utils.ParallelRunner;
 
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.Map.Entry;
+import java.util.jar.Attributes;
+import java.util.jar.Manifest;
+
+import static org.jetbrains.idea.maven.project.MavenEmbeddersManager.FOR_DEPENDENCIES_RESOLVE;
 
 public class MavenProjectResolver {
   public static final Key<Collection<MavenArtifact>> UNRESOLVED_ARTIFACTS = new Key<>("Unresolved Artifacts");
@@ -62,11 +69,18 @@ public class MavenProjectResolver {
                       @NotNull MavenConsole console,
                       @NotNull ResolveContext context,
                       @NotNull MavenProgressIndicator process) throws MavenProcessCanceledException {
+    // Tycho requires breaking changes in submitting the correct Maven projects
+    // to the IJ Maven server implementation. Separating it seems the most logical choice
+    if (generalSettings.isTychoProject()) {
+      resolveTycho(project, mavenProjects, generalSettings, embeddersManager, console, context, process);
+      return;
+    }
+
     MultiMap<Path, MavenProject> projectMultiMap = groupByBasedir(mavenProjects);
 
-    for (Map.Entry<Path, Collection<MavenProject>> entry : projectMultiMap.entrySet()) {
+    for (Entry<Path, Collection<MavenProject>> entry : projectMultiMap.entrySet()) {
       String baseDir = entry.getKey().toString();
-      MavenEmbedderWrapper embedder = embeddersManager.getEmbedder(MavenEmbeddersManager.FOR_DEPENDENCIES_RESOLVE, baseDir, baseDir);
+      MavenEmbedderWrapper embedder = embeddersManager.getEmbedder(FOR_DEPENDENCIES_RESOLVE, baseDir, baseDir);
       try {
         Properties userProperties = new Properties();
         for (MavenProject mavenProject : mavenProjects) {
@@ -98,6 +112,152 @@ public class MavenProjectResolver {
     }
   }
 
+  private void resolveTycho(
+    @NotNull final Project project,
+    @NotNull final Collection<MavenProject> mavenProjects,
+    @NotNull final MavenGeneralSettings generalSettings,
+    @NotNull final MavenEmbeddersManager embeddersManager,
+    @NotNull final MavenConsole console,
+    @NotNull final ResolveContext context,
+    @NotNull final MavenProgressIndicator process) throws MavenProcessCanceledException {
+    final MavenProjectsManager mavenProjectsManager = MavenProjectsManager.getInstance(project);
+    final List<MavenProject> allMavenProjects = mavenProjectsManager.getProjects();
+    final Set<MavenProject> requiredMavenProjects = new HashSet<>(mavenProjects);
+
+    // What we do here is compare the Maven projects that we received as input,
+    // with the complete set of local ones. Two situations may occur:
+    // 1. a resolve has been requested for a subset of projects (1..n),
+    //    in which case we have to first calculate the required local dependencies
+    // 2. a resolve has been requested for the entire workspace,
+    //    in which case we don't need to do anything as we'll pass in all of them
+    if (!mavenProjects.equals(new HashSet<>(allMavenProjects))) {
+      process.setText(MavenProjectBundle.message("maven.resolving.tycho"));
+
+      // Let's parse the Maven project's MANIFEST files
+      final Map<MavenProject, MavenProjectManifestData> manifestsData =
+        StreamEx.of(allMavenProjects)
+          .mapToEntry(mavenProject -> {
+            try {
+              return parseManifest(mavenProject);
+            } catch (final IOException e) {
+              MavenLog.LOG.error("Could not read MANIFEST file of project " + mavenProject, e);
+              return null;
+            }
+          })
+          .nonNullValues()
+          .toMap();
+
+      for (final MavenProject mavenProject : mavenProjects) {
+        process.checkCanceled();
+        collectRequiredMavenProjects(requiredMavenProjects, manifestsData, mavenProject);
+      }
+    }
+
+    final MavenEmbedderWrapper embedder = embeddersManager.getEmbedder(FOR_DEPENDENCIES_RESOLVE, project.getBasePath(), "");
+    final Properties userProperties = new Properties();
+
+    for (MavenProject mavenProject : requiredMavenProjects) {
+      mavenProject.setConfigFileError(null);
+
+      for (final MavenImporter mavenImporter : MavenImporter.getSuitableImporters(mavenProject)) {
+        mavenImporter.customizeUserProperties(project, mavenProject, userProperties);
+      }
+    }
+
+    final boolean updateSnapshots = mavenProjectsManager.getForceUpdateSnapshots() || generalSettings.isAlwaysUpdateSnapshots();
+    embedder.customizeForResolve(myTree.getWorkspaceMap(), console, process, updateSnapshots, userProperties);
+
+    try {
+      doResolve(project, requiredMavenProjects, generalSettings, embedder, context, process);
+    } catch (final Throwable t) {
+      final MavenConfigParseException cause = findParseException(t);
+
+      if (cause != null) {
+        MavenLog.LOG.warn("Cannot parse maven config", cause);
+      } else {
+        throw t;
+      }
+    } finally {
+      embeddersManager.release(embedder);
+    }
+
+    MavenUtil.restartConfigHighlightning(project, requiredMavenProjects);
+  }
+
+  @Nullable
+  private static MavenProjectManifestData parseManifest(@NotNull final MavenProject mavenProject) throws IOException {
+    final VirtualFile directoryFile = mavenProject.getDirectoryFile();
+    final VirtualFile manifestFile = directoryFile.findFileByRelativePath("META-INF/MANIFEST.MF");
+
+    if (manifestFile == null) {
+      return null;
+    }
+
+    final Manifest manifest = new Manifest(manifestFile.getInputStream());
+    final Set<String> requiredBundles = new HashSet<>(32);
+    final Set<String> importedPackages = new HashSet<>(32);
+    final Set<String> exportedPackages = new HashSet<>(32);
+    final Attributes manifestAttributes = manifest.getMainAttributes();
+    final String requiredBundlesStr = manifestAttributes.getValue("Require-Bundle");
+
+    if (requiredBundlesStr != null) {
+      for (final String bundle : requiredBundlesStr.split(",")) {
+        // Simply extract the Bundle name, discarding version requirements.
+        // Tycho will tell us if we have the right version or not
+        requiredBundles.add(bundle.split(";")[0].trim());
+      }
+    }
+
+    final String importedPackagesStr = manifestAttributes.getValue("Import-Package");
+
+    if (importedPackagesStr != null) {
+      for (final String packageName : importedPackagesStr.split(",")) {
+        importedPackages.add(packageName.trim());
+      }
+    }
+
+    final String exportedPackagesStr = manifestAttributes.getValue("Export-Package");
+
+    if (exportedPackagesStr != null) {
+      for (final String packageName : exportedPackagesStr.split(",")) {
+        exportedPackages.add(packageName.trim());
+      }
+    }
+
+    return new MavenProjectManifestData(requiredBundles, importedPackages, exportedPackages);
+  }
+
+  private static void collectRequiredMavenProjects(
+    @NotNull final Set<MavenProject> requiredProjects,
+    @NotNull final Map<MavenProject, MavenProjectManifestData> manifestsData,
+    @NotNull final MavenProject mavenProject) {
+    final MavenProjectManifestData manifestData = manifestsData.get(mavenProject);
+
+    if (manifestData == null) {
+      return;
+    }
+
+    for (final String requiredBundle : manifestData.requiredBundles()) {
+      for (final MavenProject requiredProject : manifestsData.keySet()) {
+        if (requiredBundle.equals(requiredProject.getMavenId().getArtifactId())) {
+          requiredProjects.add(requiredProject);
+          collectRequiredMavenProjects(requiredProjects, manifestsData, requiredProject);
+        }
+      }
+    }
+
+    for (final String importedPackage : manifestData.importedPackages()) {
+      for (final Entry<MavenProject, MavenProjectManifestData> projectInfo : manifestsData.entrySet()) {
+        for (final String exportedPackage : projectInfo.getValue().exportedPackages()) {
+          if (importedPackage.equals(exportedPackage)) {
+            final MavenProject requiredProject = projectInfo.getKey();
+            requiredProjects.add(requiredProject);
+            collectRequiredMavenProjects(requiredProjects, manifestsData, requiredProject);
+          }
+        }
+      }
+    }
+  }
 
   private static MavenConfigParseException findParseException(Throwable t) {
     MavenConfigParseException parseException = ExceptionUtil.findCause(t, MavenConfigParseException.class);
@@ -287,7 +447,7 @@ public class MavenProjectResolver {
     throws MavenProcessCanceledException {
     MultiMap<Path, MavenProject> projectMultiMap = groupByBasedir(projects);
     MavenArtifactDownloader.DownloadResult result = new MavenArtifactDownloader.DownloadResult();
-    for (Map.Entry<Path, Collection<MavenProject>> entry : projectMultiMap.entrySet()) {
+    for (Entry<Path, Collection<MavenProject>> entry : projectMultiMap.entrySet()) {
       String baseDir = entry.getKey().toString();
       MavenEmbedderWrapper embedder = embeddersManager.getEmbedder(MavenEmbeddersManager.FOR_DOWNLOAD, baseDir, baseDir);
       try {
