@@ -18,13 +18,13 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
-import java.util.function.Supplier;
+import java.util.function.BooleanSupplier;
 
 final class UpdatingChangeListBuilder implements ChangelistBuilder {
   private static final Logger LOG = Logger.getInstance(UpdatingChangeListBuilder.class);
   private final ChangeListUpdater myChangeListUpdater;
   private final FileHolderComposite myComposite;
-  private final Supplier<Boolean> myDisposedGetter;
+  private final BooleanSupplier myDisposedGetter;
   private final ProjectLevelVcsManager myVcsManager;
 
   private VcsDirtyScope myScope;
@@ -34,7 +34,7 @@ final class UpdatingChangeListBuilder implements ChangelistBuilder {
 
   UpdatingChangeListBuilder(ChangeListUpdater changeListUpdater,
                             FileHolderComposite composite,
-                            Supplier<Boolean> disposedGetter) {
+                            BooleanSupplier disposedGetter) {
     myChangeListUpdater = changeListUpdater;
     myComposite = composite;
     myDisposedGetter = disposedGetter;
@@ -42,7 +42,7 @@ final class UpdatingChangeListBuilder implements ChangelistBuilder {
   }
 
   private void checkIfDisposed() {
-    if (myDisposedGetter.get()) throw new ProcessCanceledException();
+    if (myDisposedGetter.getAsBoolean()) throw new ProcessCanceledException();
   }
 
   public void setCurrent(VcsDirtyScope scope) {

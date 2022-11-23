@@ -20,6 +20,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 public final class ModuleRootModificationUtil {
   public static void addContentRoot(@NotNull Module module, @NotNull String path) {
