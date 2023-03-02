@@ -32,6 +32,9 @@ class GradleModuleData(private val dataNode: DataNode<out ModuleData>) {
 
   fun getTaskPath(simpleTaskName: String, prependCompositeBuildPath: Boolean = true): String {
     val path = if (prependCompositeBuildPath) fullGradlePath else gradlePath
+    if (isBuildSrcModule) {
+      return simpleTaskName
+    }
     return "${path.trimEnd(':')}:$simpleTaskName"
   }
 

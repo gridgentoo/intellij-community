@@ -46,11 +46,14 @@ open class GradleApplicationEnvironmentProvider : GradleBaseApplicationEnvironme
       }
     }
 
+    val isBuildSrc = CachedModuleDataFinder.getGradleModuleData(module)?.isBuildSrcModule ?: false
+
     // @formatter:off
     @Suppress("UnnecessaryVariable")
     //      @Language("Groovy")
     val initScript = """
-    def gradlePath = '$gradleTaskPath'
+    def isBuildSrc = ${isBuildSrc}
+    def gradlePath = '${if(isBuildSrc) ":" else gradleTaskPath}'
     def runAppTaskName = '$runAppTaskName'
     def mainClassToRun = '${mainClass.qualifiedName}'
     def javaExePath = mapPath('$javaExePath')
@@ -66,7 +69,7 @@ open class GradleApplicationEnvironmentProvider : GradleBaseApplicationEnvironme
 
     allprojects {
       afterEvaluate { project ->
-        if(project.path == gradlePath && project?.convention?.findPlugin(JavaPluginConvention)) {
+        if(project.path == gradlePath && (project?.convention?.findPlugin(JavaPluginConvention) || isBuildSrc)) {
           def overwrite = project.tasks.findByName(runAppTaskName) != null
           project.tasks.create(name: runAppTaskName, overwrite: overwrite, type: JavaExec) {
             if (javaExePath) executable = javaExePath
@@ -92,7 +95,11 @@ open class GradleApplicationEnvironmentProvider : GradleBaseApplicationEnvironme
                 mainModule = javaModuleName
               }
             } else {
-              classpath = project.sourceSets[sourceSetName].runtimeClasspath
+              if(isBuildSrc) {
+                classpath = buildscript.configurations["classpath"] + project.files("build/libs/buildSrc.jar")
+              } else {
+                classpath = project.sourceSets[sourceSetName].runtimeClasspath
+              }
             }
           }
         }
