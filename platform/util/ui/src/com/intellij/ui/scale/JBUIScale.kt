@@ -31,7 +31,7 @@ object JBUIScale {
   @Internal
   val SCALE_VERBOSE: Boolean = java.lang.Boolean.getBoolean("ide.ui.scale.verbose")
 
-  private const val USER_SCALE_FACTOR_PROPERTY = "JBUIScale.userScaleFactor"
+  const val USER_SCALE_FACTOR_PROPERTY = "JBUIScale.userScaleFactor"
 
   /**
    * The user scale factor, see [ScaleType.USR_SCALE].
