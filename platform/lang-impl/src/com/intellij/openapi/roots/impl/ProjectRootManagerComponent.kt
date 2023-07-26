@@ -126,7 +126,7 @@ open class ProjectRootManagerComponent(project: Project) : ProjectRootManagerImp
   }
 
   init {
-    if (!myProject.isDefault) {
+    if (!myProject.isDefault && !myProject.isDisposed) {
       registerListeners()
     }
   }
@@ -186,7 +186,7 @@ open class ProjectRootManagerComponent(project: Project) : ProjectRootManagerImp
   }
 
   private fun addRootsToWatch() {
-    if (myProject.isDefault) {
+    if (myProject.isDefault || myProject.isDisposed) {
       return
     }
 
