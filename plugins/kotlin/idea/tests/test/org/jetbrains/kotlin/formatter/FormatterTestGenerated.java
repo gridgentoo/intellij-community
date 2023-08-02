@@ -168,6 +168,34 @@ public abstract class FormatterTestGenerated extends AbstractFormatterTest {
         }
 
         @RunWith(JUnit3RunnerWithInners.class)
+        @TestMetadata("testData/formatter/groupDeclarations")
+        public static class GroupDeclarations extends AbstractFormatterTest {
+            private void runTest(String testDataFilePath) throws Exception {
+                KotlinTestUtils.runTest(this::doTest, this, testDataFilePath);
+            }
+
+            @TestMetadata("ExpressionBodiesColumnAlign.after.kt")
+            public void testExpressionBodiesAlign() throws Exception {
+                runTest("testData/formatter/groupDeclarations/ExpressionBodiesColumnAlign.after.kt");
+            }
+
+            @TestMetadata("LocalExpressionBodiesColumnAlign.after.kt")
+            public void testLocalExpressionBodiesColumnAlign() throws Exception {
+                runTest("testData/formatter/groupDeclarations/LocalExpressionBodiesColumnAlign.after.kt");
+            }
+
+            @TestMetadata("LocalVariablesColumnAlign.after.kt")
+            public void testLocalVariablesColumnAlign() throws Exception {
+                runTest("testData/formatter/groupDeclarations/LocalVariablesColumnAlign.after.kt");
+            }
+
+            @TestMetadata("PropertiesColumnAlign.after.kt")
+            public void testPropertiesColumnAlign() throws Exception {
+                runTest("testData/formatter/groupDeclarations/PropertiesColumnAlign.after.kt");
+            }
+        }
+
+        @RunWith(JUnit3RunnerWithInners.class)
         @TestMetadata("testData/formatter/modifierList")
         public static class ModifierList extends AbstractFormatterTest {
             private void runTest(String testDataFilePath) throws Exception {
