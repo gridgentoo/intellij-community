@@ -58,7 +58,7 @@ public class EditorSettingsExternalizable implements PersistentStateComponent<Ed
     public int HORIZONTAL_SCROLL_JUMP = 0;
     public boolean IS_CARET_INSIDE_TABS;
     @NonNls public String STRIP_TRAILING_SPACES = STRIP_TRAILING_SPACES_CHANGED;
-    public boolean IS_ENSURE_NEWLINE_AT_EOF = false;
+    public boolean IS_ENSURE_NEWLINE_AT_EOF = true;
     public boolean REMOVE_TRAILING_BLANK_LINES = false;
     public boolean SHOW_QUICK_DOC_ON_MOUSE_OVER_ELEMENT = true;
     public boolean SHOW_INSPECTION_WIDGET = true;
