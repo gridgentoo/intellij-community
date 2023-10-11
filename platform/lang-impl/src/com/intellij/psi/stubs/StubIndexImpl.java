@@ -235,6 +235,7 @@ public final class StubIndexImpl extends StubIndexEx {
   }
 
   public void dispose() {
+    if (!myInitialized) return;
     try {
       myPerFileElementTypeStubModificationTracker.dispose();
       Collection<UpdatableIndex<?, Void, FileContent, ?>> values = getAsyncState().myIndices.values();
