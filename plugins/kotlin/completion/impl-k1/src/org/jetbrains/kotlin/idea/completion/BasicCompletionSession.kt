@@ -17,6 +17,7 @@ import com.intellij.platform.ml.impl.turboComplete.SuggestionGeneratorWithArtifa
 import com.intellij.psi.*
 import com.intellij.psi.impl.source.tree.LeafPsiElement
 import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.util.applyIf
 import org.jetbrains.kotlin.analysis.api.analyze
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.idea.base.facet.platform.platform
@@ -25,6 +26,8 @@ import org.jetbrains.kotlin.idea.base.projectStructure.languageVersionSettings
 import org.jetbrains.kotlin.idea.caches.resolve.analyzeInContext
 import org.jetbrains.kotlin.idea.caches.resolve.util.resolveToDescriptor
 import org.jetbrains.kotlin.idea.codeInsight.ReferenceVariantsHelper
+import org.jetbrains.kotlin.idea.completion.handlers.KotlinPropertyInsertHandler
+import org.jetbrains.kotlin.idea.completion.handlers.surroundWithBracesIfInStringTemplate
 import org.jetbrains.kotlin.idea.completion.implCommon.keywords.BreakContinueKeywordHandler
 import org.jetbrains.kotlin.idea.completion.keywords.DefaultCompletionKeywordHandlerProvider
 import org.jetbrains.kotlin.idea.completion.keywords.createLookups
@@ -766,7 +769,14 @@ class BasicCompletionSession(
                                     expression,
                                     prefix,
                                     resolutionFacade
-                                ).map { it.createLookupElement() })
+                                ).map {
+                                    val lookupElementBuilder = it.createLookupElement()
+                                    lookupElementBuilder.applyIf(lookupElementBuilder.lookupString != "this") {
+                                        withInsertHandler { context, _ ->
+                                            surroundWithBracesIfInStringTemplate(context)
+                                        }
+                                    }
+                                })
                         } else {
                             // for completion in secondary constructor delegation call
                             collector.addElement(lookupElement)
