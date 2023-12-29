@@ -132,7 +132,7 @@ class NewJavaToKotlinConverter(
             externalCodeProcessing,
             languageVersion.supportsFeature(LanguageFeature.FunctionalInterfaceConversion)
         )
-        ConversionsRunner.doApply(asts.mapNotNull { it.second }, context) { conversionIndex, conversionCount, i, desc ->
+        ConversionsRunner.doApply(asts.mapNotNull { it.second }, settings, context) { conversionIndex, conversionCount, i, desc ->
             processor.updateState(
                 J2KConversionPhase.RUN_CONVERSIONS.phaseNumber,
                 conversionIndex,
@@ -178,6 +178,7 @@ class NewJavaToKotlinConverter(
             if (imports.isEmpty()) return
 
             val psiFactory = KtPsiFactory(project)
+
             @Suppress("DEPRECATION") // unclear how to replace this
             val importPsi = psiFactory.createImportDirectives(
                 imports.map { ImportPath(it, isAllUnder = false) }
