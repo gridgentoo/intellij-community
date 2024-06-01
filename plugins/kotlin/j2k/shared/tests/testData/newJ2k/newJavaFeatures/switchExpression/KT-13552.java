@@ -1,4 +1,3 @@
-// IGNORE_K2
 public class SwitchDemo {
     public static int test(int i) {
         String monthString = "<empty>";
@@ -18,7 +17,7 @@ public class SwitchDemo {
             case 12: monthString = "December";  yield 13;
         }
         String status="";
-        int b = switch (status) {
+        switch (status) {
             case "init":
             case "dial":
             case "transmit":

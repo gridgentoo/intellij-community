@@ -42,6 +42,7 @@ class JKIfElseStatement(condition: JKExpression, thenBranch: JKStatement, elseBr
     var condition by child(condition)
     var thenBranch by child(thenBranch)
     var elseBranch by child(elseBranch)
+    var hasLiftedReturn: Boolean = false
     override fun accept(visitor: JKVisitor) = visitor.visitIfElseStatement(this)
 }
 
@@ -86,6 +87,7 @@ class JKKtWhenStatement(
 ) : JKStatement(), JKKtWhenBlock {
     override var expression: JKExpression by child(expression)
     override var cases: List<JKKtWhenCase> by children(cases)
+    override var hasLiftedReturn: Boolean = false
 
     override fun accept(visitor: JKVisitor) = visitor.visitKtWhenStatement(this)
 }
