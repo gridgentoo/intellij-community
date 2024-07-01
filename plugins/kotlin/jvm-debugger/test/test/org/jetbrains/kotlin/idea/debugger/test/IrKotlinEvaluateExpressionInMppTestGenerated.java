@@ -2364,6 +2364,11 @@ public abstract class IrKotlinEvaluateExpressionInMppTestGenerated extends Abstr
                 KotlinTestUtils.runTest(this::doMultipleBreakpointsTest, this, TargetBackend.JVM_IR_WITH_IR_EVALUATOR, testDataFilePath);
             }
 
+            @TestMetadata("breakpointsInLambdasWithDestructuring.kt")
+            public void testBreakpointsInLambdasWithDestructuring() throws Exception {
+                runTest("testData/evaluation/multipleBreakpoints/breakpointsInLambdasWithDestructuring.kt");
+            }
+
             @TestMetadata("clearCache.kt")
             public void testClearCache() throws Exception {
                 runTest("testData/evaluation/multipleBreakpoints/clearCache.kt");
