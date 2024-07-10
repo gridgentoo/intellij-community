@@ -3315,6 +3315,7 @@ pyepisoder episoder
 pyfarm pyfarm.core 
 pyfeed feedzilla-api 
 pyflot python-flot-utils 
+pygame pygame-ce 
 pygeolib pygeocoder 
 pygithub3 pygithub3-intellisense 
 pyglibc glibc 
