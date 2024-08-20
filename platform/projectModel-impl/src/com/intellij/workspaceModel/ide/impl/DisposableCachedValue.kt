@@ -71,7 +71,7 @@ internal class DisposableCachedValue<R : Disposable>(
     val oldValue = latestValue
     if (oldValue != null) {
       entityStorage().clearCachedValue(cachedValue)
-      Disposer.dispose(oldValue)
+      CachedValuesDisposer.getInstance(project).requestDispose(oldValue)
       latestStorageModificationCount = null
       latestValue = null
     }
