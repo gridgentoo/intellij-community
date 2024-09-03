@@ -15,6 +15,7 @@ import com.jetbrains.jdi.ClassTypeImpl
 import com.sun.jdi.Location
 import com.sun.jdi.VMDisconnectedException
 import com.sun.jdi.request.StepRequest
+import org.jetbrains.kotlin.idea.debugger.base.util.safeAllLineLocations
 import org.jetbrains.kotlin.idea.debugger.base.util.safeLineNumber
 import org.jetbrains.kotlin.idea.debugger.base.util.safeLocation
 import org.jetbrains.kotlin.idea.debugger.base.util.safeMethod
@@ -212,6 +213,7 @@ class KotlinStepIntoRequestHint(
     parentHint: RequestHint?
 ) : KotlinRequestHint(stepThread, suspendContext, StepRequest.STEP_LINE, StepRequest.STEP_INTO, filter, parentHint) {
     private var lastWasKotlinFakeLineNumber = false
+    private var currentSteppingSize = StepRequest.STEP_LINE
 
     private companion object {
         private val LOG = Logger.getInstance(KotlinStepIntoRequestHint::class.java)
@@ -228,6 +230,7 @@ class KotlinStepIntoRequestHint(
                 }
             }
             val location = frameProxy.safeLocation()
+            currentSteppingSize = StepRequest.STEP_LINE
             // Continue stepping into if we are at a compiler generated fake line number.
             if (location != null && isKotlinFakeLineNumber(location)) {
                 lastWasKotlinFakeLineNumber = true
@@ -246,6 +249,20 @@ class KotlinStepIntoRequestHint(
                 return STOP
             }
 
+            // When the VM steps into a method, it will stop in the beginning of it,
+            // even if the first line number is declared a number of opcodes later.
+            // This can spoil the debugging in case of stepping into lambdas like:
+            // f { (a, b) -> ... }
+            // However the newest versions of the compiler will not generate line numbers
+            // for parameter destructuring, the debugger will stop in the beginning of a
+            // lambda anyway, and destructured parameters will not be visible in the variables
+            // view. In such situations we need to do one opcode wise step to jump to the first
+            // declared line number in a method.
+            if (location != null && location.isMethodEntryLocationWithoutLineNumber()) {
+                currentSteppingSize = StepRequest.STEP_MIN
+                return StepRequest.STEP_OVER
+            }
+
             return super.getNextStepDepth(context)
         } catch (ignored: VMDisconnectedException) {
         } catch (e: EvaluateException) {
@@ -253,6 +270,20 @@ class KotlinStepIntoRequestHint(
         }
         return STOP
     }
+
+    override fun getSize(): Int = currentSteppingSize
+}
+
+private fun Location.isMethodEntryLocationWithoutLineNumber(): Boolean {
+    if (!isInKotlinSources()) {
+        return false
+    }
+
+    val sortedLocations = safeMethod()?.safeAllLineLocations()?.sorted() ?: return false
+    if (sortedLocations.isEmpty()) {
+        return false
+    }
+    return codeIndex() < sortedLocations.first().codeIndex()
 }
 
 private fun needTechnicalStepInto(context: SuspendContextImpl): Boolean {
