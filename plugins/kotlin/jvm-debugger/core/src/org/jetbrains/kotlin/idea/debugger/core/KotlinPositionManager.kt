@@ -263,7 +263,7 @@ class KotlinPositionManager(private val debugProcess: DebugProcess) : MultiReque
         if (sameLineLocations.size < 2 || hasFinallyBlockInParent(psiFile)) {
             return false
         }
-        val locationsInSameInlinedFunction = findLocationsInSameInlinedFunction(sameLineLocations, method, sourceFileName)
+        val locationsInSameInlinedFunction = findLocationsInSameInlinedFunction(sameLineLocations, method)
         return locationsInSameInlinedFunction.ifEmpty { sameLineLocations }.indexOf(this) > 0
     }
 
@@ -275,7 +275,7 @@ class KotlinPositionManager(private val debugProcess: DebugProcess) : MultiReque
         }
     }
 
-    private fun Location.findLocationsInSameInlinedFunction(locations: List<Location>, method: Method, sourceFileName: String): List<Location> {
+    private fun Location.findLocationsInSameInlinedFunction(locations: List<Location>, method: Method): List<Location> {
         val leastEnclosingBorders = method
             .getInlineFunctionBorders()
             .getLeastEnclosingBorders(this)
