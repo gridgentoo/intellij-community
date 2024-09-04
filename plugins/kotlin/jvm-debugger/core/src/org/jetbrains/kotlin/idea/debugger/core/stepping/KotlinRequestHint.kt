@@ -279,11 +279,9 @@ private fun Location.isMethodEntryLocationWithoutLineNumber(): Boolean {
         return false
     }
 
-    val sortedLocations = safeMethod()?.safeAllLineLocations()?.sorted() ?: return false
-    if (sortedLocations.isEmpty()) {
-        return false
-    }
-    return codeIndex() < sortedLocations.first().codeIndex()
+    val firstDeclaredLocation = safeMethod()?.safeAllLineLocations()?.minByOrNull { it.codeIndex() }
+        ?: return false
+    return codeIndex() < firstDeclaredLocation.codeIndex()
 }
 
 private fun needTechnicalStepInto(context: SuspendContextImpl): Boolean {
