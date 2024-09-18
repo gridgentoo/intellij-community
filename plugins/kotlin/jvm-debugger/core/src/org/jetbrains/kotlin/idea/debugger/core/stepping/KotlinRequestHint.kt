@@ -2,15 +2,15 @@
 
 package org.jetbrains.kotlin.idea.debugger.core.stepping
 
+import com.intellij.debugger.DebuggerManagerEx
+import com.intellij.debugger.SourcePosition
+import com.intellij.debugger.engine.*
 import com.intellij.debugger.engine.DebugProcess.JAVA_STRATUM
-import com.intellij.debugger.engine.DebugProcessImpl
-import com.intellij.debugger.engine.MethodFilter
-import com.intellij.debugger.engine.RequestHint
-import com.intellij.debugger.engine.SuspendContextImpl
 import com.intellij.debugger.engine.evaluation.EvaluateException
 import com.intellij.debugger.jdi.ThreadReferenceProxyImpl
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.diagnostic.thisLogger
+import com.intellij.util.Range
 import com.jetbrains.jdi.ClassTypeImpl
 import com.sun.jdi.Location
 import com.sun.jdi.VMDisconnectedException
@@ -20,6 +20,7 @@ import org.jetbrains.kotlin.idea.debugger.base.util.safeLineNumber
 import org.jetbrains.kotlin.idea.debugger.base.util.safeLocation
 import org.jetbrains.kotlin.idea.debugger.base.util.safeMethod
 import org.jetbrains.kotlin.idea.debugger.core.*
+import org.jetbrains.kotlin.idea.debugger.core.DebuggerUtils.isGeneratedIrBackendLambdaMethodName
 import org.jetbrains.kotlin.load.java.JvmAbi
 import org.jetbrains.org.objectweb.asm.Type
 
@@ -213,7 +214,6 @@ class KotlinStepIntoRequestHint(
     parentHint: RequestHint?
 ) : KotlinRequestHint(stepThread, suspendContext, StepRequest.STEP_LINE, StepRequest.STEP_INTO, filter, parentHint) {
     private var lastWasKotlinFakeLineNumber = false
-    private var currentSteppingSize = StepRequest.STEP_LINE
 
     private companion object {
         private val LOG = Logger.getInstance(KotlinStepIntoRequestHint::class.java)
@@ -230,7 +230,6 @@ class KotlinStepIntoRequestHint(
                 }
             }
             val location = frameProxy.safeLocation()
-            currentSteppingSize = StepRequest.STEP_LINE
             // Continue stepping into if we are at a compiler generated fake line number.
             if (location != null && isKotlinFakeLineNumber(location)) {
                 lastWasKotlinFakeLineNumber = true
@@ -256,13 +255,11 @@ class KotlinStepIntoRequestHint(
             // However the newest versions of the compiler will not generate line numbers
             // for parameter destructuring, the debugger will stop in the beginning of a
             // lambda anyway, and destructured parameters will not be visible in the variables
-            // view. In such situations we need to do one opcode wise step to jump to the first
-            // declared line number in a method.
-            if (location != null && location.isMethodEntryLocationWithoutLineNumber()) {
-                currentSteppingSize = StepRequest.STEP_MIN
+            // view. In such situations we need to install a breakpoint to the first location
+            // declared in a lambda and perform a step over to reach it.
+            if (addBreakpointAtFirstDeclaredLocationInLambda(this, context)) {
                 return StepRequest.STEP_OVER
             }
-
             return super.getNextStepDepth(context)
         } catch (ignored: VMDisconnectedException) {
         } catch (e: EvaluateException) {
@@ -270,18 +267,50 @@ class KotlinStepIntoRequestHint(
         }
         return STOP
     }
-
-    override fun getSize(): Int = currentSteppingSize
 }
 
-private fun Location.isMethodEntryLocationWithoutLineNumber(): Boolean {
-    if (!isInKotlinSources()) {
+private fun addBreakpointAtFirstDeclaredLocationInLambda(hint: KotlinRequestHint, context: SuspendContextImpl): Boolean {
+    val currentLocation = context.location ?: return false
+    if (!currentLocation.isInKotlinSources()) {
         return false
     }
 
-    val firstDeclaredLocation = safeMethod()?.safeAllLineLocations()?.minByOrNull { it.codeIndex() }
+    val method = currentLocation.safeMethod() ?: return false
+    if (!method.name().isGeneratedIrBackendLambdaMethodName()) {
+        return false
+    }
+
+    val firstDeclaredLocation = method.safeAllLineLocations().minByOrNull { it.codeIndex() }
         ?: return false
-    return codeIndex() < firstDeclaredLocation.codeIndex()
+    // If the current location is before the first declared location, then
+    // it means that it is synthetic, and we should skip it when stepping.
+    if (currentLocation.codeIndex() >= firstDeclaredLocation.codeIndex()) {
+        return false
+    }
+
+    val sourcePosition = context.debugProcess.positionManager.getSourcePosition(firstDeclaredLocation) ?: return false
+    val filter = object : BreakpointStepMethodFilter {
+        override fun locationMatches(process: DebugProcessImpl?, location: Location?): Boolean {
+            return location == firstDeclaredLocation
+        }
+
+        override fun getBreakpointPosition(): SourcePosition {
+            return sourcePosition
+        }
+
+        // Not needed
+        override fun getCallingExpressionLines(): Range<Int>? {
+            return null
+        }
+
+        // Not needed
+        override fun getLastStatementLine(): Int {
+            return -1
+        }
+    }
+    val breakpoint = DebuggerManagerEx.getInstanceEx(context.debugProcess.project).getBreakpointManager().addStepIntoBreakpoint(filter) ?: return false
+    DebugProcessImpl.prepareAndSetSteppingBreakpoint(context, breakpoint, hint, true)
+    return true
 }
 
 private fun needTechnicalStepInto(context: SuspendContextImpl): Boolean {
